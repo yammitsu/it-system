@@ -1,0 +1,396 @@
+# IT言語別スキル取得講習システム 設計書
+下記では講師と受講生の2権限で分かれています。
+受講生は課題ファイルのダウンロードがメイン作業となり講師は課題ファイルのアップロードや編集に加え企業情報や受講生の追加やレポートなどシステム管理も行います。
+2FA認証は不要です。
+
+## 1. システム概要
+
+- ITエンジニア育成のための言語別eラーニング講習プラットフォーム
+- 講師・受講生・管理者それぞれの役割/権限管理
+- Slackワークスペースと連携し、日ごとチャンネル作成や出席者招待を自動化
+- 受講生は企業ごと、講師は個人管理で利用
+- PC/スマホ両対応（レスポンシブUI）
+- 多言語対応（日本語/英語）
+- 通知システム（メール・Slack・プッシュ通知）
+
+## 2. 主な機能・要件
+
+### 【共通機能】
+
+- UI/UXはbacklogのように
+- Slackワークスペースにメールアドレスで登録・参加必須
+- ログインはSlack登録メール＋パスワード（**2FA対応追加**）
+- 企業ごと/コードによる認証・登録
+- 権限：システム管理者・企業管理者・講師・受講生（**権限細分化**）
+- ログインセッションは1端末のみ許可（多重ログイン/セッション対策）
+- APIレート制限とアクセスログ記録
+- GDPR対応のデータ管理機能
+
+### 【講師機能】
+
+- 全企業の統計・分析ダッシュボード
+- システム設定管理（メンテナンスモード、通知設定等）
+- 監査ログ管理・セキュリティレポート
+- 自社内のユーザー管理・権限設定
+- 自社専用の課題作成・カスタマイズ
+- ライセンス管理
+
+#### 課題管理
+
+- 課題（大区分/小区分）追加・編集・削除・完了目安設定
+- ファイル（zip/pdf等）アップロード（**ウイルススキャン追加**）
+- ファイルのアップロード先フォルダは自動生成（Laravel Storage仕様）
+- 課題の表示順や説明文編集、**前提条件設定**
+- 課題の依存関係設定（順次開放機能）
+- 推定時間・タグ設定
+- 課題テンプレート機能
+- 受講生の進捗モニタリング
+- 授業資料作成・共有機能
+- 出席確認・評価入力
+
+#### シフト管理
+
+- 講師ごとの日付別シフト管理（カレンダーUI）
+- 担当講師追加・変更・削除
+
+#### ユーザー管理
+
+- 企業ごと・課題ごと・出席2週間無い人等で絞込み（複数条件組合せ対応）
+- Excelで一括受講生登録（A1:企業名、A3〜:名前/B:メール/C:言語）
+- 講師/受講生の切替・登録・編集・削除
+- ユーザーのアクティビティ履歴表示
+- 一括操作機能（一括メール送信、権限変更等）
+
+#### 進捗レポート
+
+- 会社ごと/課題ごと/完了・未完了者/2週間未出席等でフィルタ
+- 複数条件組合せで表示・CSVエクスポート
+- 自動レポート出力機能（週次<簡易版>/月次<詳細版>）
+
+#### Slackバッチ管理
+
+- チャンネル自動作成・担当講師/出席受講生自動招待
+- 8:00以降出席者自動追加（常時起動バッチ）
+- キャンセル者自動削除（常時起動バッチ）
+
+### 【受講生機能】
+
+#### ダッシュボード
+
+- 進捗グラフ（課題完了数/割合）＋当月出席カレンダー
+- 日付切り替えは毎朝7:55、出席ボタンは当日・翌日のみ
+- 学習時間入力・目標設定
+
+#### 課題ページ
+
+- 課題リスト・説明・ダウンロード（初回DL記録）
+- 自身の進捗可視化
+- 他同企業受講生の進捗との比較表示
+- 課題評価
+
+#### 進捗管理
+
+- 課題ダウンロード/完了日/進捗状況確認＆「完了」ボタン
+- 進捗の詳細コメント入力
+- 学習メモ・ノート機能
+
+#### プロフィール
+
+- メールアドレス変更時はSlack参加確認ダイアログ表示＆APIチェック
+- パスワード変更は通常確認のみ
+- 学習履歴・統計情報表示
+- 通知設定カスタマイズ
+
+## 3. Slack連携バッチ仕様
+
+- 23:00以降翌日分のチャンネル自動作成＆担当講師/翌日分出席者招待
+- 8:00以降当日分の新規出席者追加＆キャンセル者自動削除
+- 出席ボタン押下タイミング・キャンセルボタンによる動的追加/削除対応
+- 未参加者はエラーログ＋該当者に自動メール送信
+- Slackボット機能（チャンネル作成時にチャンネル運用方法の説明メッセージ送信）
+- 障害時の自動復旧・アラート機能
+
+## 4. 出席カレンダー・日付切り替え仕様
+
+- 出席ボタン/キャンセルボタンは「本日・翌日」のみ表示
+- 日付切り替えは毎朝7:55で自動（フロント/バッチ側共通）
+- サーバー／フロント両方で制御
+- タイムゾーン対応（グローバル展開時）
+
+## 5. ファイルアップロード/ダウンロード設計
+
+- Laravel Storage（public）利用で自動ディレクトリ作成
+- 課題ごとにtasks/{課題ID}/ファイル格納、DBにファイルパス保存
+- ダウンロード時はパスで取得、初回DL日記録
+- ファイル暗号化・アクセス制御
+- CDN連携によるパフォーマンス向上
+- ファイルバージョン管理
+
+## 6. セキュリティ/運用面
+
+- 多重ログイン・セッション対策
+- 全API・画面にエラーハンドリング/エラーログ/ユーザーメッセージ表示
+- DB/ファイル等のバリデーション網羅
+- WAF（Web Application Firewall）導入
+- 定期的なセキュリティ監査・脆弱性スキャン
+- データベース暗号化・バックアップ戦略
+- CSRF・XSS・SQLインジェクション対策強化
+
+## 7. 必要テーブル一覧
+
+- companies - 企業管理
+- languages - 言語マスタ
+- users - ユーザー管理
+- tasks - 課題管理
+- task_dependencies - 課題依存関係
+- task_submissions - 課題進捗
+- attendances - 出席履歴
+- shifts - シフト管理
+- user_sessions - セッション管理
+- notifications - 通知管理
+- audit_logs - 監査ログ
+- user_badges - バッジ・達成記録
+- learning_paths - 学習パス
+- feedback - フィードバック・評価
+- chat_messages - 質問・回答チャット
+- system_settings - システム設定
+- company_settings - 企業別設定
+- learning_notes - 学習ノート
+- user_learning_paths - ユーザー学習パス登録
+- slack_channels - Slackチャンネル管理
+- file_download_logs - ファイルダウンロード履歴
+- chat_message_likes - いいね機能
+- api_rate_limits - API利用制限
+- maintenance_logs - メンテナンスログ
+- company_licenses - 企業ライセンス管理
+
+## 8. ディレクトリ構成（Laravel 10対応）
+
+```
+app/
+├── Http/
+│   ├── Controllers/
+│   │   ├── Teacher/
+│   │   │   ├── DashboardController.php
+│   │   │   ├── CompanyController.php
+│   │   │   ├── SystemSettingsController.php
+│   │   │   ├── AuditController.php
+│   │   │   ├── DashboardController.php
+│   │   │   ├── UserController.php
+│   │   │   ├── CompanyTaskController.php
+│   │   │   ├── BillingController.php
+│   │   │   ├── DashboardController.php
+│   │   │   ├── TasksController.php
+│   │   │   ├── ShiftsController.php
+│   │   │   ├── StudentsController.php
+│   │   │   ├── ReportsController.php
+│   │   │   └── FeedbackController.php
+│   │   ├── Student/
+│   │   │   ├── DashboardController.php
+│   │   │   ├── TasksController.php
+│   │   │   ├── ProgressController.php
+│   │   │   ├── ProfileController.php
+│   │   │   └── NotesController.php
+│   │   └── Api/
+│   │       ├── V1/
+│   │       │   ├── AuthController.php
+│   │       │   ├── TaskController.php
+│   │       │   ├── ProgressController.php
+│   │       │   └── NotificationController.php
+│   │       └── External/          # 外部連携API
+│   │           ├── SlackController.php
+│   │           └── PowerBIController.php
+│   ├── Middleware/
+│   │   ├── RoleMiddleware.php
+│   │   ├── RateLimitMiddleware.php
+│   │   └── TwoFactorMiddleware.php
+│   └── Requests/
+│       ├── Task/
+│       ├── User/
+│       └── Company/
+├── Models/
+│   ├── User.php
+│   ├── Company.php
+│   ├── Task.php
+│   ├── TaskSubmission.php
+│   ├── Attendance.php
+│   ├── Shift.php
+│   ├── Notification.php
+│   ├── UserBadge.php
+│   ├── LearningPath.php
+│   └── AuditLog.php
+├── Services/
+│   ├── SlackService.php
+│   ├── NotificationService.php
+│   ├── ProgressAnalyticsService.php
+│   ├── FileService.php
+│   └── SecurityService.php
+├── Console/
+│   └── Commands/
+│       ├── ManageSlackAttendanceChannels.php
+│       ├── SendDailyReports.php
+│       ├── CleanupOldSessions.php
+│       └── SecurityScan.php
+└── Events/
+    ├── TaskCompleted.php
+    ├── UserLoggedIn.php
+    └── AttendanceMarked.php
+
+resources/
+└── views/
+    ├── layouts/
+    │   ├── app.blade.php
+    │   ├── admin.blade.php
+    │   └── mobile.blade.php
+    ├── components/
+    │   ├── progress-chart.blade.php
+    │   ├── calendar.blade.php
+    │   └── notification-bell.blade.php
+    └── system/
+        ├── teacher/
+        ├── student/
+        └── auth/
+
+public/
+├── storage/
+├── js/
+│   ├── components/
+│   └── pages/
+├── css/
+└── images/
+
+database/
+├── migrations/
+├── seeders/
+├── factories/
+└── schema/                    # ERD管理用
+
+config/
+├── slack.php                 # Slack連携設定
+├── notification.php          # 通知設定
+└── security.php             # セキュリティ設定
+
+tests/
+├── Feature/
+│   ├── Auth/
+│   ├── Task/
+│   ├── Progress/
+│   └── Slack/
+└── Unit/
+    ├── Services/
+    └── Models/
+```
+
+## 9. 技術スタック・ライブラリ
+
+### バックエンド
+
+- **Laravel 10** (PHP 8.2+)
+- **MySQL 8.0** /
+- **Laravel Horizon** (キュー管理)
+- **Laravel Telescope** (デバッグ・監視)
+
+### フロントエンド
+
+- **Bootstrap 5** + カスタムCSS
+- **Axios** (API通信)
+
+### 外部連携
+
+- **Slack Web API**
+
+### 監視・運用
+
+- **Laravel Telescope**
+- **Sentry** (エラー監視)
+- **New Relic** / **Datadog** (APM)
+- **Laravel Backup** (定期バックアップ)
+
+## 10. 追加された機能詳細
+
+### 権限管理の強化
+
+- 講師：全システムの管理・担当受講生の指導・評価
+- 受講生：学習・進捗管理
+
+### 分析・レポート機能
+
+- リアルタイム学習分析
+- 予測モデル（離脱リスク、成績予測）
+- カスタマイズ可能なダッシュボード
+- 外部BIツール連携
+
+### セキュリティ強化
+
+- ゼロトラスト・アーキテクチャ
+- 定期的なセキュリティ監査
+- GDPR・個人情報保護法対応
+
+## 11. 実装フェーズ計画
+
+### Phase 1 (基本機能)
+
+- 認証・権限管理
+- 基本的な課題・進捗管理
+- Slack連携基盤
+
+### Phase 2 (拡張機能)
+
+- 分析・レポート機能
+- 通知システム
+- ファイル管理高度化
+
+### Phase 3 (高度機能)
+
+- 外部ツール連携
+- モバイルアプリ
+
+### Phase 4 (エンタープライズ)
+
+- マルチテナント対応
+- 高可用性・スケーラビリティ
+- 国際化対応
+
+## 12. 運用・保守計画
+
+### 監視項目
+
+- システム可用性（99.9%目標）
+- レスポンス時間
+- エラー率
+- セキュリティイベント
+
+### バックアップ戦略
+
+- 日次：データベース完全バックアップ
+- 時間毎：差分バックアップ
+- リアルタイム：ファイルレプリケーション
+
+### 災害復旧
+
+- RTO（復旧時間目標）：4時間
+- RPO（復旧ポイント目標）：1時間
+- 地理的分散バックアップ
+
+## 13. セキュリティ対策詳細
+
+### 認証・認可
+
+- OAuth 2.0 / OpenID Connect
+- JWT トークン管理
+- ロールベースアクセス制御（RBAC）
+- API キー管理
+
+### データ保護
+
+- 保存時暗号化（AES-256）
+- 転送時暗号化（TLS 1.3）
+- 機密データマスキング
+- データ消去ポリシー
+
+### 監査・コンプライアンス
+
+- 全アクセスログ記録
+- 定期的な脆弱性診断
+- ペネトレーションテスト
+- セキュリティ教育・訓練

@@ -1,0 +1,144 @@
+# Laravel プロジェクト作成・初期設定
+
+composer create-project laravel/laravel:^10.0 it-training-system
+cd it-training-system
+
+# 必要パッケージのインストール
+
+composer require laravel/sanctum
+composer require laravel/horizon
+composer require laravel/telescope
+composer require spatie/laravel-permission
+composer require maatwebsite/excel
+composer require pusher/pusher-php-server
+composer require laravel/socialite
+composer require pragmarx/google2fa-laravel
+composer require spatie/laravel-backup
+composer require spatie/laravel-activitylog
+
+# 開発用パッケージ
+
+composer require –dev laravel/pint
+composer require –dev nunomaduro/larastan
+composer require –dev pestphp/pest
+composer require –dev pestphp/pest-plugin-laravel
+
+# Node.js パッケージ
+
+npm install
+npm install axios
+npm install @types/node typescript
+
+# Laravel設定
+
+php artisan key:generate
+php artisan storage:link
+php artisan vendor:publish –provider=“Spatie\Permission\PermissionServiceProvider”
+php artisan vendor:publish –tag=sanctum-migrations
+php artisan vendor:publish –tag=telescope-migrations
+php artisan vendor:publish –tag=horizon-assets
+
+
+# マイグレーションファイルの配置
+# database/migrations/ ディレクトリに各ファイルを配置
+
+# マイグレーション実行
+php artisan migrate
+
+# ロールバック（必要時）
+php artisan migrate:rollback
+
+# リフレッシュ（開発時）
+php artisan migrate:fresh --seed
+
+
+# .envファイルの設定
+cp .env.example .env
+php artisan key:generate
+
+# データベース設定後
+php artisan migrate:fresh --seed
+
+# 開発環境の場合（テストデータ込み）
+php artisan migrate:fresh --seed --env=local
+
+# 本番環境の場合（管理者のみ）
+php artisan migrate:fresh --seed --env=production
+
+# crontab -e
+# 毎日23:00に翌日のSlackチャンネル作成
+0 23 * * * cd /path/to/project && php artisan slack:manage-channels --create >> /var/log/laravel-slack.log 2>&1
+
+# 8:00-22:00の間、10分ごとに出席者管理
+*/10 8-22 * * * cd /path/to/project && php artisan slack:manage-channels --invite >> /var/log/laravel-slack.log 2>&1
+
+# 毎週日曜日の深夜に古いチャンネルをクリーンアップ
+0 2 * * 0 cd /path/to/project && php artisan slack:manage-channels --cleanup >> /var/log/laravel-slack.log 2>&1
+
+# Slack設定
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_WORKSPACE_URL=https://your-workspace.slack.com
+SLACK_CHANNEL_PREFIX=training-
+
+# セッション設定
+SESSION_DRIVER=database
+SESSION_LIFETIME=120
+
+# 管理者アカウント
+ADMIN_EMAIL=admin@system.com
+ADMIN_PASSWORD=ChangeMe@123456!
+
+# 1. 環境設定
+cp .env.example .env
+php artisan key:generate
+
+# 2. データベース設定（.envファイル編集）
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+DB_DATABASE=it_training_system
+DB_USERNAME=root
+DB_PASSWORD=
+
+# 3. Slack設定（.envファイル編集）
+SLACK_BOT_TOKEN=xoxb-your-bot-token
+SLACK_WORKSPACE_URL=https://your-workspace.slack.com
+
+# 4. マイグレーション実行
+php artisan migrate:fresh --seed
+
+# 5. ストレージリンク作成
+php artisan storage:link
+
+# 6. キューワーカー起動（別ターミナル）
+php artisan queue:work
+
+# 7. 開発サーバー起動
+php artisan serve
+
+# 8. Cronジョブ設定（本番環境）
+# crontabに以下を追加
+* * * * * cd /path-to-project && php artisan schedule:run >> /dev/null 2>&1
+
+# レポート設定
+REPORT_WEEKLY_ENABLED=true
+REPORT_MONTHLY_ENABLED=true
+REPORT_SEND_TIME=09:00
+
+# ファイル管理
+FILE_ENCRYPTION_ENABLED=true
+FILE_VERSION_CONTROL=true
+FILE_CDN_ENABLED=false
+FILE_CDN_URL=https://cdn.example.com
+
+# 通知設定
+NOTIFICATION_BATCH_SIZE=100
+NOTIFICATION_RETRY_COUNT=3
+
+# crontab -e に追加
+
+# 毎日9:00にレポート送信
+0 9 * * * cd /path/to/project && php artisan reports:send-daily >> /var/log/laravel-reports.log 2>&1
+
+# 10分ごとにスケジュール通知処理
+*/10 * * * * cd /path/to/project && php artisan notifications:process-scheduled >> /var/log/laravel-notifications.log 2>&1
